@@ -40,43 +40,57 @@ function parseCSV<T extends Readonly<string[]>>(filePath: string, columns: T): P
 }
 
 export async function loadAirportData(): Promise<Airport[]> {
-  const columns = ['airportID', 'name', 'city', 'country', 'iata', 'icao', 'latitude', 'longitude'] as const;
+  const columns = ['id', 'name', 'city', 'country', 'iata', 'icao', 'latitude', 'longitude'] as const;
   const rows = await parseCSV(resolvePath(__dirname, '../../src/data/airports.dat'), columns);
 
-  return rows.map((row) => ({
-    id: row.airportID,
-    icao: row.icao === '\\N' ? null : row.icao,
-    iata: row.iata === '\\N' ? null : row.iata,
+  return rows.map(row => ({
+    id: row.id,
     name: row.name,
+    city: row.city,
+    country: row.country,
+    iata: row.iata === '\\N' ? null : row.iata,
+    icao: row.icao === '\\N' ? null : row.icao,
     location: {
-      latitude: Number(row.latitude),
-      longitude: Number(row.longitude),
-    },
-  }));
+      latitude: parseFloat(row.latitude),
+      longitude: parseFloat(row.longitude)
+    }
+  })).filter(airport => airport.iata || airport.icao);
 }
 
 export async function loadRouteData(): Promise<Route[]> {
   const airports = await loadAirportData();
-  const airportsById = new Map<string, Airport>(airports.map((airport) => [airport.id, airport] as const));
+  // Create maps for both ID and IATA lookups
+  const airportsById = new Map<string, Airport>();
+  const airportsByCode = new Map<string, Airport>();
+
+  airports.forEach(airport => {
+    airportsById.set(airport.id, airport);
+    if (airport.iata) airportsByCode.set(airport.iata, airport);
+    if (airport.icao) airportsByCode.set(airport.icao, airport);
+  });
 
   const columns = ['airline', 'airlineID', 'source', 'sourceID', 'destination', 'destinationID', 'codeshare', 'stops'] as const;
   const rows = await parseCSV(resolvePath(__dirname, '../../src/data/routes.dat'), columns);
 
-  return rows.filter((row) => row.stops === '0').map((row) => {
-    const source = airportsById.get(row.sourceID);
-    const destination = airportsById.get(row.destinationID);
+  return rows
+    .filter((row) => row.stops === '0')
+    .map((row) => {
+      // Try to find airports by both ID and code
+      const source = airportsById.get(row.sourceID) || airportsByCode.get(row.source);
+      const destination = airportsById.get(row.destinationID) || airportsByCode.get(row.destination);
 
-    if (source === undefined || destination === undefined) {
-      return null;
-    }
+      if (!source || !destination) {
+        return null;
+      }
 
-    return {
-      source,
-      destination,
-      distance: haversine(
-        source.location.latitude, source.location.longitude,
-        destination.location.latitude, destination.location.longitude,
-      ),
-    }
-  }).filter(notNil);
+      return {
+        source,
+        destination,
+        distance: haversine(
+          source.location.latitude, source.location.longitude,
+          destination.location.latitude, destination.location.longitude,
+        ),
+      }
+    })
+    .filter(notNil);
 }
