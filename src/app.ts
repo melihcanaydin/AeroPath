@@ -1,17 +1,22 @@
 import express from 'express';
+import morgan from 'morgan';
 import { RouteController } from './api/controllers/routeController';
-import { RouteService } from './services/routeService';
-import { DistanceService } from './services/distanceService';
 import { errorHandler } from './api/middlewares/errorHandler';
+import { container } from './config/dependencyContainer';
 
-const app = express();
-app.use(express.json());
+export async function createApp() {
+    const app = express();
 
-const distanceService = new DistanceService();
-const routeService = new RouteService(distanceService);
-const routeController = new RouteController(routeService);
+    const routeController = new RouteController(container.routeService);
 
-app.post('/api/shortest-route', routeController.findShortestRoute.bind(routeController));
-app.use(errorHandler);
+    app.use(morgan('tiny'));
+    app.use(express.json());
+    app.use(container.requestTracker.handle);
 
-export default app;
+    app.get('/health', (_, res) => res.send('OK'));
+    app.get('/routes/:from/:to', routeController.getRoute.bind(routeController));
+
+    app.use(errorHandler);
+
+    return app;
+}
