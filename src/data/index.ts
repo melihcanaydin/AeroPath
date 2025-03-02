@@ -1,4 +1,4 @@
-import * as parse from 'csv-parse';
+import { parse }from 'csv-parse';
 import { readFile } from 'fs';
 import { resolve as resolvePath } from 'path';
 
@@ -41,7 +41,7 @@ function parseCSV<T extends Readonly<string[]>>(filePath: string, columns: T): P
 
 export async function loadAirportData(): Promise<Airport[]> {
   const columns = ['airportID', 'name', 'city', 'country', 'iata', 'icao', 'latitude', 'longitude'] as const;
-  const rows = await parseCSV(resolvePath(__dirname, './airports.dat'), columns);
+  const rows = await parseCSV(resolvePath(__dirname, '../../src/data/airports.dat'), columns);
 
   return rows.map((row) => ({
     id: row.airportID,
@@ -60,7 +60,7 @@ export async function loadRouteData(): Promise<Route[]> {
   const airportsById = new Map<string, Airport>(airports.map((airport) => [airport.id, airport] as const));
 
   const columns = ['airline', 'airlineID', 'source', 'sourceID', 'destination', 'destinationID', 'codeshare', 'stops'] as const;
-  const rows = await parseCSV(resolvePath(__dirname, './routes.dat'), columns);
+  const rows = await parseCSV(resolvePath(__dirname, '../../src/data/routes.dat'), columns);
 
   return rows.filter((row) => row.stops === '0').map((row) => {
     const source = airportsById.get(row.sourceID);
