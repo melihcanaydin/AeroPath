@@ -1,36 +1,213 @@
-# Transporeon Visibility Hub backend test-task
+# AEROPATH
 
-## Task description
+## 📌 Overview
 
-The test task consists of two parts, the main part, and a bonus part. We suggest tackling the bonus part once the main objective of the service has been achieved.
+The AeroPathis a backend API that calculates the shortest flight route between two airports, considering a maximum of four flight legs and using real-world geographical distances. The project is built with Node.js, Express, and TypeScript, leveraging OpenFlights data as the source for airport and route details.
 
-The task is to build a JSON over HTTP API endpoint that takes as input two IATA/ICAO airport codes and provides as output a route between these two airports so that:
+Additionally, it supports an optional ground hop feature, allowing travelers to change airports within 100 km during layovers. The API is designed for scalability, modularity, and efficient shortest path calculations.
 
-1. The route consists of at most 4 legs/flights (that is, 3 stops/layovers, if going from A->B, a valid route could be A->1->2->3->B, or for example A->1->B etc.) and;
-2. The route is the shortest such route as measured in kilometers of geographical distance.
+## 🚀 Features
 
-For the bonus part, extend your service so that it also allows changing airports during stops that are within 100km of each other. For example, if going from A->B, a valid route could be A->1->2=>3->4->B, where “2=>3” is a change of airports done via ground. Multiple ground hops are allowed, but they cannot be consecutive. These switches are not considered as part of the legs/layover/hop count, but their distance should be reflected in the final distance calculated for the route.
+- Shortest Flight Route Calculation with a maximum of four legs
+- Dijkstra's Algorithm for optimal path selection
+- Haversine Formula for accurate distance calculation
+- Support for Ground Hops, allowing airport changes within 100 km
+- Efficient Graph-Based Search for route computation
+- Redis Caching for Optimized Performance
+- API Error Handling and Validation
+- Docker Support for easy deployment
+- Jest-Based Unit Tests
 
-The bonus part should be opt-in by providing a query parameter `with-ground-hops` to the request.
+## 📂 Project Structure
 
-Notes:
+```
+src/
+├── api/
+│   ├── controllers/
+│   │   └── routeController.ts
+│   ├── middlewares/
+│   │   ├── errorHandler.ts
+│   │   └── requestTracker.ts
+├── config/
+│   ├── config.ts
+│   ├── dependencyContainer.ts
+│   ├── environment.ts
+│   └── RouteConfig.ts
+├── data/
+│   ├── airports.dat
+│   ├── routes.dat
+│   └── index.ts
+├── domain/
+│   ├── errors/
+│   │   ├── BaseError.ts
+│   │   ├── DistanceErrors.ts
+│   │   └── RouteErrors.ts
+│   ├── interfaces/
+│   │   ├── IAirport.ts
+│   │   ├── IRoute.ts
+│   │   ├── repositories/
+│   │   │   ├── IAirportRepository.ts
+│   │   │   └── IRouteRepository.ts
+│   │   └── services/
+│   │       ├── IDistanceService.ts
+│   │       ├── ILoggerService.ts
+│   │       ├── IRouteCache.ts
+│   │       └── IRouteService.ts
+│   └── models/
+│       ├── Airport.ts
+│       ├── Connection.ts
+│       └── Route.ts
+├── infrastructure/
+│   └── repositories/
+│       └── airportRepository.ts
+├── services/
+│   ├── distanceService.ts
+│   ├── graphService.ts
+│   ├── healthService.ts
+│   ├── loggerService.ts
+│   └── routeService.ts
+├── types/
+│   └── RequestContext.ts
+├── utils/
+│   └── PriorityQueue.ts
+├── app.ts
+└── index.ts
+```
 
-1. The weekdays and flight times are not important for the purposes of the test task - you are free to assume that all flights can depart any required time
-2. You are free to choose to use any open-source libraries
-3. You can ask additional questions
+## ⚙️ Installation & Setup
 
-## Service
+### Prerequisites
 
-In this repository, you will find an [express](https://www.npmjs.com/package/express) service written in [typescript](https://www.npmjs.com/package/typescript). The repository assumes you have configured [Yarn](https://yarnpkg.com) and [Node.js (18+)](https://nodejs.org/en/) on your system.
+- Docker and Docker Compose
 
-Your goal is to modify this service so that it fulfills the requirements of the test task.
+1. Clone the repository and navigate to the project directory
 
-The service is already configured with data from [OpenFlights](https://openflights.org/data.html), which albeit outdated, will work fine for the purposes of this test task.
+```sh
+git clone <repository-url>
+cd aeropath
+```
 
-The service also includes a set of tests, which can be executed via `yarn test`, these represent two cases for the first part and one case for the second part of the task. Once you are confident that your solution works, these tests should pass. **Notice that these tests also enforce a specific response format for your service.**
+2. Start the application
 
-## Docker
+```sh
+docker-compose up -d
+```
 
-The service is also setup to run in docker, you can use the docker-compose file to run either the service itself (exposes the same port 3000 as with `yarn start`/`yarn start:dev`) - `docker-compose up -d service`.
+3. Verify the installation
 
-You can also run the tests via `docker-compose up test`.
+```sh
+curl http://localhost:3000/health
+```
+
+### Managing the Application
+
+Stop the application:
+
+```sh
+docker-compose down
+```
+
+View logs:
+
+```sh
+docker-compose logs -f service
+```
+
+Rebuild and restart:
+
+```sh
+docker-compose up -d --build
+```
+
+Run tests:
+
+```sh
+docker-compose up test
+```
+
+## 🛠 API Endpoints
+
+### Find Shortest Flight Route
+
+**Endpoint:** `GET /routes/:from/:to`
+
+**Example:** `GET /routes/JFK/LAX`
+
+**Response:**
+
+```json
+{
+  "source": "JFK",
+  "destination": "LAX",
+  "distance": 3200,
+  "hops": ["JFK", "ORD", "LAX"]
+}
+```
+
+### Find Route with Ground Hops
+
+**Endpoint:** `GET /routes/:from/:to?with-ground-hops=true`
+
+**Example:** `GET /routes/JFK/LAX?with-ground-hops=true`
+
+**Response:**
+
+```json
+{
+  "source": "JFK",
+  "destination": "LAX",
+  "distance": 3250,
+  "hops": ["JFK", "EWR", "ORD", "LAX"]
+}
+```
+
+### Health Check
+
+**Endpoint:** `GET /health`
+
+**Response:**
+
+```json
+{
+  "status": "UP",
+  "redis": "UP",
+  "timestamp": "2024-01-01T12:00:00.000Z"
+}
+```
+
+### Error Handling
+
+- 400 Bad Request for invalid airport codes
+- 404 Not Found if no route is available
+- 500 Internal Server Error for unexpected failures
+
+## 🤔 Why These Choices?
+
+### Dijkstra's Algorithm Over BFS
+
+Dijkstra's Algorithm is used instead of BFS because it finds the shortest weighted path efficiently. BFS is best for unweighted graphs, but flights have distances, making Dijkstra the optimal choice.
+
+### Haversine Formula for Distance Calculation
+
+The Haversine formula is used to compute accurate great-circle distances between airport locations. This ensures correctness in selecting the shortest possible route.
+
+### Graph-Based Data Structure for Route Computation
+
+Airports and routes are stored as a graph, allowing efficient traversal. This reduces lookup time compared to a flat data structure.
+
+### Ground Hop Logic
+
+Ground hops are optional and activated via `with-ground-hops=true`. The system prevents consecutive ground hops to maintain flight-based integrity.
+
+### Redis for Route Caching
+
+Without caching, every API call recomputes the shortest route, impacting performance. Redis stores computed routes temporarily, reducing redundant calculations and improving response time for frequently requested routes.
+
+## 🛠 Built With
+
+- Node.js 18+
+- TypeScript
+- Express.js
+- Jest for Testing
+- Redis for Caching
+- Docker for Deployment
